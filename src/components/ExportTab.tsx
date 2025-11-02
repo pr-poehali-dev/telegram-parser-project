@@ -1,10 +1,45 @@
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import Icon from '@/components/ui/icon';
+import { useToast } from '@/hooks/use-toast';
 
 const ExportTab = () => {
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(['Все']);
+  const [selectedDate, setSelectedDate] = useState('');
+  const { toast } = useToast();
+
+  const toggleCategory = (cat: string) => {
+    if (cat === 'Все') {
+      setSelectedCategories(['Все']);
+    } else {
+      const newCategories = selectedCategories.includes(cat)
+        ? selectedCategories.filter(c => c !== cat)
+        : [...selectedCategories.filter(c => c !== 'Все'), cat];
+      setSelectedCategories(newCategories.length === 0 ? ['Все'] : newCategories);
+    }
+  };
+
+  const handleExport = (format: string) => {
+    toast({
+      title: `Экспорт ${format}`,
+      description: 'Файл успешно загружен',
+    });
+    
+    const mockData = { data: 'sample data', format, date: new Date().toISOString() };
+    const blob = new Blob([JSON.stringify(mockData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `export-${Date.now()}.${format === 'Excel' ? 'xlsx' : format === 'CSV' ? 'csv' : 'json'}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <Card>
@@ -14,15 +49,15 @@ const ExportTab = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-3 md:grid-cols-3">
-            <Button variant="outline" className="h-24 flex-col gap-2">
+            <Button variant="outline" className="h-24 flex-col gap-2" onClick={() => handleExport('Excel')}>
               <Icon name="FileSpreadsheet" size={32} className="text-green-500" />
               <span>Excel (.xlsx)</span>
             </Button>
-            <Button variant="outline" className="h-24 flex-col gap-2">
+            <Button variant="outline" className="h-24 flex-col gap-2" onClick={() => handleExport('CSV')}>
               <Icon name="FileText" size={32} className="text-blue-500" />
               <span>CSV (.csv)</span>
             </Button>
-            <Button variant="outline" className="h-24 flex-col gap-2">
+            <Button variant="outline" className="h-24 flex-col gap-2" onClick={() => handleExport('JSON')}>
               <Icon name="Braces" size={32} className="text-purple-500" />
               <span>JSON (.json)</span>
             </Button>
@@ -32,19 +67,31 @@ const ExportTab = () => {
             <h4 className="font-medium">Параметры экспорта</h4>
             <div className="space-y-2">
               <label className="text-sm">Период</label>
-              <Input type="date" />
+              <Input 
+                type="date" 
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <label className="text-sm">Категории</label>
               <div className="flex flex-wrap gap-2">
                 {['Все', 'Акции', 'Крипто', 'Недвижимость', 'Стартапы'].map((cat) => (
-                  <Badge key={cat} variant="outline" className="cursor-pointer hover:bg-primary/20">
+                  <Badge 
+                    key={cat} 
+                    variant={selectedCategories.includes(cat) ? 'default' : 'outline'}
+                    className="cursor-pointer hover:bg-primary/20"
+                    onClick={() => toggleCategory(cat)}
+                  >
                     {cat}
                   </Badge>
                 ))}
               </div>
             </div>
-            <Button className="w-full gap-2 mt-4">
+            <Button 
+              className="w-full gap-2 mt-4"
+              onClick={() => handleExport('JSON')}
+            >
               <Icon name="Download" size={16} />
               Скачать данные
             </Button>
@@ -73,7 +120,12 @@ const ExportTab = () => {
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-muted-foreground">{exp.size}</span>
-                  <Button size="sm" variant="ghost">
+                  <Button 
+                    size="sm" 
+                    variant="ghost"
+                    onClick={() => handleExport(exp.format)}
+                    title="Скачать"
+                  >
                     <Icon name="Download" size={16} />
                   </Button>
                 </div>

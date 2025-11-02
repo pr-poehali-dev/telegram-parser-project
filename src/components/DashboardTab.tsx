@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface Case {
   id: number;
@@ -21,6 +23,8 @@ interface DashboardTabProps {
 }
 
 const DashboardTab = ({ activityData, categoryData, mockCases }: DashboardTabProps) => {
+  const [selectedCase, setSelectedCase] = useState<Case | null>(null);
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -145,7 +149,12 @@ const DashboardTab = ({ activityData, categoryData, mockCases }: DashboardTabPro
                     <div className="text-sm font-medium text-green-500">{case_.roi}</div>
                     <div className="text-xs text-muted-foreground">{case_.risk}</div>
                   </div>
-                  <Button size="sm" variant="ghost">
+                  <Button 
+                    size="sm" 
+                    variant="ghost"
+                    onClick={() => setSelectedCase(case_)}
+                    title="Подробнее"
+                  >
                     <Icon name="ExternalLink" size={16} />
                   </Button>
                 </div>
@@ -154,6 +163,39 @@ const DashboardTab = ({ activityData, categoryData, mockCases }: DashboardTabPro
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={!!selectedCase} onOpenChange={() => setSelectedCase(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{selectedCase?.title}</DialogTitle>
+            <DialogDescription>
+              {selectedCase?.category} • {selectedCase?.date}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="text-sm text-muted-foreground">Доходность</div>
+                <div className="text-2xl font-bold text-green-500">{selectedCase?.roi}</div>
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground">Риск</div>
+                <div className="text-2xl font-bold">{selectedCase?.risk}</div>
+              </div>
+            </div>
+            <div className="p-4 rounded-lg bg-accent/50">
+              <p className="text-sm text-muted-foreground">
+                Это пример инвестиционного кейса, собранного с Telegram каналов. 
+                Здесь будет полное описание инвестиции, ссылки на источник и дополнительные данные.
+              </p>
+            </div>
+            <Button className="w-full gap-2">
+              <Icon name="ExternalLink" size={16} />
+              Перейти к источнику
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

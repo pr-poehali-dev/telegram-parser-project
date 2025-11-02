@@ -1,11 +1,46 @@
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import Icon from '@/components/ui/icon';
+import { useToast } from '@/hooks/use-toast';
 
 const ParsingTab = () => {
+  const [keywords, setKeywords] = useState('');
+  const [minROI, setMinROI] = useState('');
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [schedules, setSchedules] = useState([
+    { id: 1, name: 'Каждые 2 часа', description: 'Основные каналы', active: true },
+    { id: 2, name: 'Раз в день (09:00)', description: 'VIP каналы', active: false },
+  ]);
+  const { toast } = useToast();
+
+  const toggleCategory = (cat: string) => {
+    setSelectedCategories(prev => 
+      prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
+    );
+  };
+
+  const applyFilters = () => {
+    toast({
+      title: 'Фильтры применены',
+      description: `Ключевые слова: ${keywords || 'не указаны'}, Категории: ${selectedCategories.length || 'все'}`,
+    });
+  };
+
+  const toggleSchedule = (id: number) => {
+    setSchedules(schedules.map(s => 
+      s.id === id ? { ...s, active: !s.active } : s
+    ));
+    const schedule = schedules.find(s => s.id === id);
+    toast({
+      title: schedule?.active ? 'Расписание остановлено' : 'Расписание запущено',
+      description: schedule?.name,
+    });
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="grid gap-4 md:grid-cols-2">
@@ -17,13 +52,22 @@ const ParsingTab = () => {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Ключевые слова</label>
-              <Input placeholder="инвестиции, ROI, доходность..." />
+              <Input 
+                placeholder="инвестиции, ROI, доходность..."
+                value={keywords}
+                onChange={(e) => setKeywords(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Категории</label>
               <div className="flex flex-wrap gap-2">
                 {['Акции', 'Крипто', 'Недвижимость', 'Стартапы', 'Облигации'].map((cat) => (
-                  <Badge key={cat} variant="outline" className="cursor-pointer hover:bg-primary/20">
+                  <Badge 
+                    key={cat} 
+                    variant={selectedCategories.includes(cat) ? 'default' : 'outline'}
+                    className="cursor-pointer hover:bg-primary/20"
+                    onClick={() => toggleCategory(cat)}
+                  >
                     {cat}
                   </Badge>
                 ))}
@@ -31,9 +75,14 @@ const ParsingTab = () => {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Минимальная доходность (%)</label>
-              <Input type="number" placeholder="10" />
+              <Input 
+                type="number" 
+                placeholder="10"
+                value={minROI}
+                onChange={(e) => setMinROI(e.target.value)}
+              />
             </div>
-            <Button className="w-full">Применить фильтры</Button>
+            <Button className="w-full" onClick={applyFilters}>Применить фильтры</Button>
           </CardContent>
         </Card>
 
@@ -44,26 +93,28 @@ const ParsingTab = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 rounded-lg border border-border">
-                <div className="flex items-center gap-3">
-                  <Icon name="Clock" className="text-primary" size={20} />
-                  <div>
-                    <div className="font-medium">Каждые 2 часа</div>
-                    <div className="text-xs text-muted-foreground">Основные каналы</div>
+              {schedules.map((schedule) => (
+                <div 
+                  key={schedule.id}
+                  className="flex items-center justify-between p-3 rounded-lg border border-border cursor-pointer hover:bg-accent/50"
+                  onClick={() => toggleSchedule(schedule.id)}
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon 
+                      name="Clock" 
+                      className={schedule.active ? 'text-primary' : 'text-muted-foreground'} 
+                      size={20} 
+                    />
+                    <div>
+                      <div className="font-medium">{schedule.name}</div>
+                      <div className="text-xs text-muted-foreground">{schedule.description}</div>
+                    </div>
                   </div>
+                  <Badge variant={schedule.active ? 'default' : 'secondary'}>
+                    {schedule.active ? 'Активно' : 'Остановлено'}
+                  </Badge>
                 </div>
-                <Badge variant="default">Активно</Badge>
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-lg border border-border">
-                <div className="flex items-center gap-3">
-                  <Icon name="Clock" className="text-muted-foreground" size={20} />
-                  <div>
-                    <div className="font-medium">Раз в день (09:00)</div>
-                    <div className="text-xs text-muted-foreground">VIP каналы</div>
-                  </div>
-                </div>
-                <Badge variant="secondary">Остановлено</Badge>
-              </div>
+              ))}
             </div>
             <Button variant="outline" className="w-full gap-2">
               <Icon name="Plus" size={16} />
