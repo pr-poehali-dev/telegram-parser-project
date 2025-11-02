@@ -169,8 +169,8 @@ const ChannelsTab = ({ mockChannels, searchQuery, setSearchQuery }: ChannelsTabP
                   </Button>
                 </div>
               </div>
-            ))))
-            }
+            )))}
+          
           </div>
         </CardContent>
       </Card>
