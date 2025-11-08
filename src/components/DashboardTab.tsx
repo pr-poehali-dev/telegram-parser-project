@@ -1,29 +1,72 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
 import { LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useToast } from '@/hooks/use-toast';
 
-interface Case {
+interface Signal {
   id: number;
-  title: string;
-  category: string;
-  risk: string;
-  roi: string;
-  date: string;
-  status: string;
+  ticker: string;
+  signal_type: string;
+  entry_price: number;
+  target_price: number;
+  stop_loss: number;
+  channel_username: string;
+  message_text: string;
+  created_at: string;
 }
 
 interface DashboardTabProps {
   activityData: Array<{ date: string; cases: number }>;
   categoryData: Array<{ name: string; value: number; color: string }>;
-  mockCases: Case[];
+  mockCases: any[];
 }
 
-const DashboardTab = ({ activityData, categoryData, mockCases }: DashboardTabProps) => {
-  const [selectedCase, setSelectedCase] = useState<Case | null>(null);
+const API_URL = 'https://functions.poehali.dev/3fb95351-9d0d-462f-9b12-5c4709f76f2e';
+
+const DashboardTab = ({ activityData, categoryData }: DashboardTabProps) => {
+  const [signals, setSignals] = useState<Signal[]>([]);
+  const [selectedSignal, setSelectedSignal] = useState<Signal | null>(null);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    loadSignals();
+  }, []);
+
+  const loadSignals = async () => {
+    try {
+      const res = await fetch(API_URL);
+      const data = await res.json();
+      setSignals(data.signals || []);
+    } catch (error) {
+      toast({
+        title: 'Ошибка загрузки',
+        description: 'Не удалось загрузить сигналы',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const deleteSignal = async (id: number) => {
+    try {
+      await fetch(API_URL, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      toast({ title: 'Удалено', description: 'Сигнал удален' });
+      loadSignals();
+    } catch (error) {
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось удалить',
+        variant: 'destructive',
+      });
+    }
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -34,8 +77,8 @@ const DashboardTab = ({ activityData, categoryData, mockCases }: DashboardTabPro
             <Icon name="Radio" className="text-muted-foreground" size={16} />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">24</div>
-            <p className="text-xs text-muted-foreground mt-1">+3 за неделю</p>
+            <div className="text-3xl font-bold">{signals.length}</div>
+            <p className="text-xs text-muted-foreground mt-1">Всего сигналов</p>
           </CardContent>
         </Card>
         <Card className="hover-scale">
@@ -125,34 +168,39 @@ const DashboardTab = ({ activityData, categoryData, mockCases }: DashboardTabPro
 
       <Card>
         <CardHeader>
-          <CardTitle>Последние кейсы</CardTitle>
-          <CardDescription>Новые инвестиционные предложения</CardDescription>
+          <CardTitle>Последние сигналы</CardTitle>
+          <CardDescription>Новые инвестиционные сигналы из Telegram</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {mockCases.map((case_) => (
-              <div key={case_.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors">
+            {signals.slice(0, 5).map((signal) => (
+              <div key={signal.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors">
                 <div className="flex items-center gap-3 flex-1">
                   <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
                     <Icon name="TrendingUp" className="text-primary" size={20} />
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <h4 className="font-medium">{case_.title}</h4>
-                      {case_.status === 'new' && <Badge variant="secondary" className="text-xs">Новый</Badge>}
+                      <h4 className="font-medium">{signal.ticker || 'N/A'}</h4>
+                      <Badge 
+                        variant={signal.signal_type === 'BUY' ? 'default' : 'destructive'}
+                        className="text-xs"
+                      >
+                        {signal.signal_type || 'SIGNAL'}
+                      </Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground">{case_.category} • {case_.date}</p>
+                    <p className="text-xs text-muted-foreground">@{signal.channel_username} • {new Date(signal.created_at).toLocaleDateString('ru-RU')}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="text-right">
-                    <div className="text-sm font-medium text-green-500">{case_.roi}</div>
-                    <div className="text-xs text-muted-foreground">{case_.risk}</div>
+                    <div className="text-sm font-medium text-green-500">${signal.entry_price || 'N/A'}</div>
+                    <div className="text-xs text-muted-foreground">Вход</div>
                   </div>
                   <Button 
                     size="sm" 
                     variant="ghost"
-                    onClick={() => setSelectedCase(case_)}
+                    onClick={() => setSelectedSignal(signal)}
                     title="Подробнее"
                   >
                     <Icon name="ExternalLink" size={16} />
@@ -160,39 +208,62 @@ const DashboardTab = ({ activityData, categoryData, mockCases }: DashboardTabPro
                 </div>
               </div>
             ))}
+            {signals.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                <Icon name="Inbox" size={48} className="mx-auto mb-2 opacity-50" />
+                <p>Пока нет сигналов</p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
 
-      <Dialog open={!!selectedCase} onOpenChange={() => setSelectedCase(null)}>
+      <Dialog open={!!selectedSignal} onOpenChange={() => setSelectedSignal(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{selectedCase?.title}</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              {selectedSignal?.ticker || 'Сигнал'}
+              <Badge variant={selectedSignal?.signal_type === 'BUY' ? 'default' : 'destructive'}>
+                {selectedSignal?.signal_type}
+              </Badge>
+            </DialogTitle>
             <DialogDescription>
-              {selectedCase?.category} • {selectedCase?.date}
+              @{selectedSignal?.channel_username} • {selectedSignal && new Date(selectedSignal.created_at).toLocaleDateString('ru-RU')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div>
-                <div className="text-sm text-muted-foreground">Доходность</div>
-                <div className="text-2xl font-bold text-green-500">{selectedCase?.roi}</div>
+                <div className="text-sm text-muted-foreground">Вход</div>
+                <div className="text-xl font-bold text-blue-500">${selectedSignal?.entry_price || 'N/A'}</div>
               </div>
               <div>
-                <div className="text-sm text-muted-foreground">Риск</div>
-                <div className="text-2xl font-bold">{selectedCase?.risk}</div>
+                <div className="text-sm text-muted-foreground">Цель</div>
+                <div className="text-xl font-bold text-green-500">${selectedSignal?.target_price || 'N/A'}</div>
+              </div>
+              <div>
+                <div className="text-sm text-muted-foreground">Стоп</div>
+                <div className="text-xl font-bold text-red-500">${selectedSignal?.stop_loss || 'N/A'}</div>
               </div>
             </div>
             <div className="p-4 rounded-lg bg-accent/50">
-              <p className="text-sm text-muted-foreground">
-                Это пример инвестиционного кейса, собранного с Telegram каналов. 
-                Здесь будет полное описание инвестиции, ссылки на источник и дополнительные данные.
-              </p>
+              <p className="text-sm whitespace-pre-wrap">{selectedSignal?.message_text}</p>
             </div>
-            <Button className="w-full gap-2">
-              <Icon name="ExternalLink" size={16} />
-              Перейти к источнику
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="destructive" 
+                className="flex-1 gap-2"
+                onClick={() => {
+                  if (selectedSignal) {
+                    deleteSignal(selectedSignal.id);
+                    setSelectedSignal(null);
+                  }
+                }}
+              >
+                <Icon name="Trash2" size={16} />
+                Удалить
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

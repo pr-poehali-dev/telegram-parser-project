@@ -1,0 +1,20 @@
+{
+  "tests": [
+    {
+      "name": "Get all signals",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Add new channel",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "channel_username": "investchannel",
+        "channel_title": "Investment Signals"
+      },
+      "expectedStatus": 201
+    }
+  ]
+}

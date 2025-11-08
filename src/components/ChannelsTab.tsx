@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,59 +10,93 @@ import { useToast } from '@/hooks/use-toast';
 
 interface Channel {
   id: number;
-  name: string;
-  members: number;
-  active: boolean;
-  parsed: number;
-  category: string;
+  channel_username: string;
+  channel_title: string;
+  is_active: boolean;
+  last_message_id: number;
 }
 
 interface ChannelsTabProps {
-  mockChannels: Channel[];
+  mockChannels?: any[];
   searchQuery: string;
   setSearchQuery: (query: string) => void;
 }
 
-const ChannelsTab = ({ mockChannels, searchQuery, setSearchQuery }: ChannelsTabProps) => {
-  const [channels, setChannels] = useState(mockChannels);
+const API_URL = 'https://functions.poehali.dev/3fb95351-9d0d-462f-9b12-5c4709f76f2e';
+
+const ChannelsTab = ({ searchQuery, setSearchQuery }: ChannelsTabProps) => {
+  const [channels, setChannels] = useState<Channel[]>([]);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newChannelName, setNewChannelName] = useState('');
+  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
+  useEffect(() => {
+    loadChannels();
+  }, []);
+
+  const loadChannels = async () => {
+    try {
+      const res = await fetch(API_URL);
+      const data = await res.json();
+      setChannels(data.channels || []);
+    } catch (error) {
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось загрузить каналы',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const filteredChannels = channels.filter(channel => 
-    channel.name.toLowerCase().includes(searchQuery.toLowerCase())
+    channel.channel_username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    channel.channel_title.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const toggleChannelStatus = (id: number) => {
     setChannels(channels.map(ch => 
-      ch.id === id ? { ...ch, active: !ch.active } : ch
+      ch.id === id ? { ...ch, is_active: !ch.is_active } : ch
     ));
     const channel = channels.find(ch => ch.id === id);
     toast({
-      title: channel?.active ? 'Канал остановлен' : 'Канал запущен',
-      description: `${channel?.name} ${channel?.active ? 'приостановлен' : 'активирован'}`,
+      title: channel?.is_active ? 'Канал остановлен' : 'Канал запущен',
+      description: `@${channel?.channel_username} ${channel?.is_active ? 'приостановлен' : 'активирован'}`,
     });
   };
 
-  const addChannel = () => {
+  const addChannel = async () => {
     if (!newChannelName.trim()) return;
     
-    const newChannel = {
-      id: Date.now(),
-      name: newChannelName,
-      members: 0,
-      active: true,
-      parsed: 0,
-      category: 'Разное'
-    };
-    
-    setChannels([...channels, newChannel]);
-    setNewChannelName('');
-    setIsAddDialogOpen(false);
-    toast({
-      title: 'Канал добавлен',
-      description: `${newChannelName} успешно добавлен в список`,
-    });
+    setLoading(true);
+    try {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          channel_username: newChannelName.replace('@', ''),
+          channel_title: newChannelName.replace('@', ''),
+        }),
+      });
+      
+      if (res.ok) {
+        toast({
+          title: 'Канал добавлен',
+          description: `@${newChannelName} успешно добавлен`,
+        });
+        setNewChannelName('');
+        setIsAddDialogOpen(false);
+        loadChannels();
+      }
+    } catch (error) {
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось добавить канал',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const deleteChannel = (id: number) => {
@@ -70,7 +104,7 @@ const ChannelsTab = ({ mockChannels, searchQuery, setSearchQuery }: ChannelsTabP
     setChannels(channels.filter(ch => ch.id !== id));
     toast({
       title: 'Канал удален',
-      description: `${channel?.name} удален из списка`,
+      description: `@${channel?.channel_username} удален из списка`,
       variant: 'destructive',
     });
   };
@@ -109,8 +143,8 @@ const ChannelsTab = ({ mockChannels, searchQuery, setSearchQuery }: ChannelsTabP
                       onKeyDown={(e) => e.key === 'Enter' && addChannel()}
                     />
                   </div>
-                  <Button onClick={addChannel} className="w-full">
-                    Добавить
+                  <Button onClick={addChannel} className="w-full" disabled={loading}>
+                    {loading ? 'Добавление...' : 'Добавить'}
                   </Button>
                 </div>
               </DialogContent>
@@ -136,17 +170,17 @@ const ChannelsTab = ({ mockChannels, searchQuery, setSearchQuery }: ChannelsTabP
               <div key={channel.id} className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-accent/50 transition-colors">
                 <div className="flex items-center gap-4 flex-1">
                   <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-bold">
-                    {channel.name.charAt(0)}
+                    {channel.channel_username.charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <h4 className="font-medium">{channel.name}</h4>
-                      <Badge variant={channel.active ? 'default' : 'secondary'}>
-                        {channel.active ? 'Активен' : 'Остановлен'}
+                      <h4 className="font-medium">@{channel.channel_username}</h4>
+                      <Badge variant={channel.is_active ? 'default' : 'secondary'}>
+                        {channel.is_active ? 'Активен' : 'Остановлен'}
                       </Badge>
                     </div>
                     <p className="text-sm text-muted-foreground mt-1">
-                      {channel.members.toLocaleString()} подписчиков • {channel.parsed} кейсов • {channel.category}
+                      {channel.channel_title}
                     </p>
                   </div>
                 </div>
@@ -157,7 +191,7 @@ const ChannelsTab = ({ mockChannels, searchQuery, setSearchQuery }: ChannelsTabP
                     onClick={() => toggleChannelStatus(channel.id)}
                     title={channel.active ? 'Остановить' : 'Запустить'}
                   >
-                    <Icon name={channel.active ? 'Pause' : 'Play'} size={16} />
+                    <Icon name={channel.is_active ? 'Pause' : 'Play'} size={16} />
                   </Button>
                   <Button 
                     size="sm" 

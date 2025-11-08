@@ -77,7 +77,6 @@ const Index = () => {
             <DashboardTab 
               activityData={activityData}
               categoryData={categoryData}
-              mockCases={mockCases}
             />
           </TabsContent>
 
