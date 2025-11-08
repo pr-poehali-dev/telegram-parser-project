@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -7,10 +7,14 @@ import { Progress } from '@/components/ui/progress';
 import Icon from '@/components/ui/icon';
 import { useToast } from '@/hooks/use-toast';
 
+const API_URL = 'https://functions.poehali.dev/435acf72-02c8-4ca3-88af-4cc09b5d3c4e';
+
 const ParsingTab = () => {
   const [keywords, setKeywords] = useState('');
   const [minROI, setMinROI] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [isParsing, setIsParsing] = useState(false);
+  const [parsedCount, setParsedCount] = useState(0);
   const [schedules, setSchedules] = useState([
     { id: 1, name: 'Каждые 2 часа', description: 'Основные каналы', active: true },
     { id: 2, name: 'Раз в день (09:00)', description: 'VIP каналы', active: false },
@@ -21,6 +25,36 @@ const ParsingTab = () => {
     setSelectedCategories(prev => 
       prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
     );
+  };
+
+  const startParsing = async () => {
+    setIsParsing(true);
+    try {
+      const res = await fetch(API_URL);
+      const data = await res.json();
+      
+      if (data.status === 'success') {
+        setParsedCount(data.parsed_messages || 0);
+        toast({
+          title: 'Парсинг завершен',
+          description: `Обработано сообщений: ${data.parsed_messages}`,
+        });
+      } else {
+        toast({
+          title: 'Ошибка парсинга',
+          description: data.message || 'Не удалось запустить парсинг',
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Ошибка',
+        description: 'Не удалось подключиться к парсеру',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsParsing(false);
+    }
   };
 
   const applyFilters = () => {
@@ -82,7 +116,16 @@ const ParsingTab = () => {
                 onChange={(e) => setMinROI(e.target.value)}
               />
             </div>
-            <Button className="w-full" onClick={applyFilters}>Применить фильтры</Button>
+            <div className="space-y-2">
+              <Button className="w-full" onClick={applyFilters}>Применить фильтры</Button>
+              <Button className="w-full" onClick={startParsing} disabled={isParsing} variant="secondary">
+                <Icon name="RefreshCw" size={16} className={isParsing ? 'animate-spin' : ''} />
+                {isParsing ? 'Парсинг...' : 'Запустить парсинг'}
+              </Button>
+              {parsedCount > 0 && (
+                <p className="text-sm text-muted-foreground text-center">Обработано: {parsedCount} сообщений</p>
+              )}
+            </div>
           </CardContent>
         </Card>
 
