@@ -16,6 +16,7 @@ API_ID = int(os.environ.get('TELEGRAM_API_ID', '0'))
 API_HASH = os.environ.get('TELEGRAM_API_HASH', '')
 PHONE = os.environ.get('TELEGRAM_PHONE', '')
 DATABASE_URL = os.environ.get('DATABASE_URL', '')
+TWO_FA_PASSWORD = os.environ.get('TELEGRAM_2FA_PASSWORD', '')
 
 def extract_investment_data(text: str) -> Dict[str, Any]:
     data = {
@@ -87,12 +88,25 @@ def extract_investment_data(text: str) -> Dict[str, Any]:
     return data
 
 async def parse_channels():
-    session_path = '/tmp/telegram_session'
-    client = TelegramClient(session_path, API_ID, API_HASH)
-    await client.start(phone=PHONE)
-    
     conn = psycopg2.connect(DATABASE_URL)
     cur = conn.cursor()
+    
+    cur.execute("SELECT session_string FROM telegram_session ORDER BY id DESC LIMIT 1")
+    result = cur.fetchone()
+    session_string = result[0] if result and result[0] else None
+    
+    from telethon.sessions import StringSession
+    session = StringSession(session_string) if session_string else StringSession()
+    
+    client = TelegramClient(session, API_ID, API_HASH)
+    
+    code = os.environ.get('TELEGRAM_CODE', '')
+    password = TWO_FA_PASSWORD if TWO_FA_PASSWORD else None
+    
+    if code:
+        await client.start(phone=PHONE, code_callback=lambda: code, password=password)
+    else:
+        await client.start(phone=PHONE, password=password)
     
     cur.execute("SELECT id, channel_username, last_message_id FROM telegram_channels WHERE is_active = true")
     channels = cur.fetchall()
@@ -142,6 +156,12 @@ async def parse_channels():
         except Exception as e:
             print(f"Error parsing {username}: {e}")
             continue
+    
+    new_session_string = client.session.save()
+    cur.execute(
+        "INSERT INTO telegram_session (session_string) VALUES (%s) ON CONFLICT (id) DO UPDATE SET session_string = EXCLUDED.session_string, updated_at = CURRENT_TIMESTAMP",
+        (new_session_string,)
+    )
     
     conn.commit()
     cur.close()
